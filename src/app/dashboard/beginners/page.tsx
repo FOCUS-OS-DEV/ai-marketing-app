@@ -401,17 +401,12 @@ export default function BeginnersPage() {
               <h2 className="text-xl font-bold text-green-800">בונה מודולות סילבוס</h2>
               <p className="text-sm text-green-600 mt-1">סה״כ: {modulesList.length} מודולים, {totalHours} שעות</p>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={addModule}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium"
-              >
-                + מודולה חדשה
-              </button>
-              <button className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors">
-                📤 ייצוא
-              </button>
-            </div>
+            <button
+              onClick={addModule}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium"
+            >
+              + מודולה חדשה
+            </button>
           </div>
 
           <div className="space-y-3">

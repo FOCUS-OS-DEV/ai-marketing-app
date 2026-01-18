@@ -11,9 +11,9 @@ export default function DashboardLayout({
     <ToastProvider>
       <div className="min-h-screen bg-[#f5f7fa]" dir="rtl">
         <Sidebar />
-        <div className="mr-64 min-h-screen">
+        <div className="mr-64 ml-0 min-h-screen overflow-x-hidden">
           <Header />
-          <main className="p-6" style={{ maxWidth: 'calc(100vw - 256px - 48px)' }}>
+          <main className="p-6 w-full">
             {children}
           </main>
         </div>
