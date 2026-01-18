@@ -245,6 +245,40 @@ export function useProContent() {
   return { content, setContent, loading, saving, error, save, reload: load }
 }
 
+// Calculator config hooks
+export function useBeginnersCalculator() {
+  return useSupabaseData({
+    tableName: 'beginners_config',
+    defaultValue: {
+      calculator: {
+        students: 40,
+        sessions: 30,
+        price: 18000,
+        cancellationRate: 5,
+        extraMaterials: 0,
+        gifts: 75,
+        certificates: 200,
+        cpl: 1000,
+        salesCommission: 5,
+        roomRent: 500,
+        mainInstructor: 500,
+        assistant: 0,
+        refreshments: 200,
+        techProduction: 0,
+        marketingAgency: 0,
+        marketingCreative: 0,
+        landingPage: 0,
+        materials: 1000,
+        partialRefunds: 200,
+        cohortMonths: 6,
+        salaryManager: 0,
+        software: 1500,
+        overhead: 200,
+      }
+    } as Record<string, unknown>,
+  })
+}
+
 // Audit log hook
 export function useAuditLog(limit = 50) {
   const [logs, setLogs] = useState<Array<{
