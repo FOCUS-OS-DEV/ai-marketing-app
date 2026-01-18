@@ -9,11 +9,11 @@ export default function DashboardLayout({
 }) {
   return (
     <ToastProvider>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-[#f5f7fa]" dir="rtl">
         <Sidebar />
         <div className="mr-64">
           <Header />
-          <main className="p-6">
+          <main className="p-6 max-w-[1600px]">
             {children}
           </main>
         </div>

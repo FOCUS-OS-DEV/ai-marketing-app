@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Card, Button, EditableContent, Tabs, TabsList, TabsTrigger, TabsContent, useToast } from '@/components/ui'
+import { Button, useToast } from '@/components/ui'
 import { useBeginnersModules, useBeginnersTasks, useBeginnersContent, useBeginnersConfig } from '@/hooks/useSupabaseData'
 
 interface Topic {
@@ -35,6 +35,17 @@ interface Audience {
   desc: string
 }
 
+interface Competitor {
+  id: number
+  name: string
+  price: string
+  hours: string
+  duration: string
+  format: string
+  ai: string
+  internship: string
+}
+
 const categoryColors: Record<string, { bg: string; border: string; text: string }> = {
   'מחקר': { bg: '#dbeafe', border: '#3b82f6', text: '#1e40af' },
   'משפטי ופיננסי': { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
@@ -55,6 +66,16 @@ const ownerColors: Record<string, string> = {
 const owners = ['לא משויך', 'אוניל', 'שחר', 'ארד', 'משותף']
 const categories = ['מחקר', 'משפטי ופיננסי', 'מכירות', 'מיקום והפקה', 'תוכן והוראה', 'החלטות']
 
+const defaultCompetitors: Competitor[] = [
+  { id: 1, name: 'SV College', price: '', hours: '64+120', duration: '~3 חודשים', format: 'פרונטלי', ai: 'ChatGPT, Jasper, Midjourney', internship: 'סטאז׳ 120 שעות' },
+  { id: 2, name: 'HackerU', price: '', hours: '430-500', duration: '5.5-13 חודשים', format: 'פרונטלי', ai: 'כלי AI', internship: 'פרויקט 150 שעות' },
+  { id: 3, name: 'Bar-Ilan', price: '', hours: '?', duration: '2x שבוע', format: 'פרונטלי', ai: 'AI מתקדם', internship: 'פרויקטי תיק' },
+  { id: 4, name: 'Horizon Labs', price: '', hours: '320', duration: '2x שבוע', format: 'אונליין', ai: 'AI + 12 סדנאות', internship: 'לקוח תוך 90 יום' },
+  { id: 5, name: 'NMC', price: '', hours: '310', duration: 'מפגשי ערב', format: 'פרונטלי', ai: 'כן', internship: 'פרויקטים עסקיים' },
+  { id: 6, name: 'John Bryce', price: '', hours: '218-315', duration: '?', format: 'פרונטלי', ai: 'Canva, Meta', internship: 'לא ברור' },
+  { id: 7, name: 'האו״פ חשיפה', price: '~5,400', hours: '120', duration: '3.5-4 חודשים', format: 'היברידי', ai: 'כן', internship: 'לא ברור' },
+]
+
 export default function BeginnersPage() {
   const { showToast } = useToast()
   const { data: modules, setData: setModules, saving: savingModules, save: saveModules, loading: loadingModules } = useBeginnersModules()
@@ -65,6 +86,9 @@ export default function BeginnersPage() {
   const [expandedModules, setExpandedModules] = useState<Set<number>>(new Set())
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [ownerFilter, setOwnerFilter] = useState<string>('all')
+  const [activeTab, setActiveTab] = useState<'overview' | 'modules' | 'tasks' | 'competitors'>('overview')
+  const [competitors, setCompetitors] = useState<Competitor[]>(defaultCompetitors)
+  const [editingCompetitor, setEditingCompetitor] = useState<number | null>(null)
 
   const audiences = (config as { audiences?: Audience[] })?.audiences || []
   const modulesList = modules as Module[]
@@ -207,223 +231,77 @@ export default function BeginnersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">תוכנית למתחילים</h1>
-          <p className="text-gray-600 mt-1">ניהול התוכנית לאנשים שרוצים להיכנס לעולם השיווק הדיגיטלי עם AI</p>
+      <header className="text-center py-8 px-6 bg-gradient-to-br from-[#1a1a2e] to-[#16213e] rounded-2xl text-white">
+        <h1 className="text-2xl font-bold mb-2">תוכנית למתחילים — שיווק דיגיטלי + AI</h1>
+        <p className="text-white/80">ניהול התוכנית לאנשים שרוצים להיכנס לעולם השיווק הדיגיטלי עם AI</p>
+        <div className="mt-4">
+          <Button onClick={handleSaveAll} loading={isSaving}>
+            💾 שמור שינויים
+          </Button>
         </div>
-        <Button onClick={handleSaveAll} loading={isSaving}>
-          שמור שינויים
-        </Button>
+      </header>
+
+      {/* Tab Navigation */}
+      <div className="bg-white rounded-xl p-2 shadow-sm flex gap-2">
+        {[
+          { id: 'overview', label: 'סקירה כללית', icon: '📊' },
+          { id: 'modules', label: `מודולים (${modulesList.length})`, icon: '📚' },
+          { id: 'tasks', label: `משימות (${tasksList.length})`, icon: '✅' },
+          { id: 'competitors', label: 'סקר מתחרים', icon: '🔍' },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as typeof activeTab)}
+            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
+              activeTab === tab.id
+                ? 'bg-gradient-to-br from-[#1a1a2e] to-[#16213e] text-white shadow-lg'
+                : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <span className="ml-2">{tab.icon}</span>
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-blue-50 rounded-xl p-4 text-center">
-          <div className="text-3xl font-bold text-blue-600">{modulesList.length}</div>
-          <div className="text-sm text-blue-700">מודולים</div>
-        </div>
-        <div className="bg-purple-50 rounded-xl p-4 text-center">
-          <div className="text-3xl font-bold text-purple-600">{totalHours}</div>
-          <div className="text-sm text-purple-700">שעות</div>
-        </div>
-        <div className="bg-green-50 rounded-xl p-4 text-center">
-          <div className="text-3xl font-bold text-green-600">{completedTasks}/{tasksList.length}</div>
-          <div className="text-sm text-green-700">משימות הושלמו</div>
-        </div>
-        <div className="bg-orange-50 rounded-xl p-4 text-center">
-          <div className="text-3xl font-bold text-orange-600">{audiences.length}</div>
-          <div className="text-sm text-orange-700">קהלי יעד</div>
-        </div>
-      </div>
-
-      <Tabs defaultValue="content">
-        <TabsList>
-          <TabsTrigger value="content">תוכן</TabsTrigger>
-          <TabsTrigger value="modules">מודולים ({modulesList.length})</TabsTrigger>
-          <TabsTrigger value="audiences">קהלי יעד ({audiences.length})</TabsTrigger>
-          <TabsTrigger value="tasks">משימות ({tasksList.length})</TabsTrigger>
-        </TabsList>
-
-        {/* Content Tab */}
-        <TabsContent value="content">
-          <div className="grid gap-6">
-            <Card title="חזון התוכנית">
-              <EditableContent
-                value={content.vision}
-                onChange={(value) => setContent({ ...content, vision: value })}
-                placeholder="הכנס את חזון התוכנית..."
-              />
-            </Card>
-
-            <Card title="דרישות קדם">
-              <EditableContent
-                value={content.requirements}
-                onChange={(value) => setContent({ ...content, requirements: value })}
-                placeholder="הכנס את דרישות הקדם..."
-              />
-            </Card>
-
-            <Card title="יתרונות התוכנית">
-              <EditableContent
-                value={content.advantages}
-                onChange={(value) => setContent({ ...content, advantages: value })}
-                placeholder="הכנס את יתרונות התוכנית..."
-              />
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* Modules Tab */}
-        <TabsContent value="modules">
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <div className="text-sm text-gray-600">
-                סה״כ: {modulesList.length} מודולים, {totalHours} שעות
+      {/* Overview Tab */}
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-2 gap-6">
+          {/* Stats Panel */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm col-span-2">
+            <h2 className="text-lg font-bold text-[#1a1a2e] mb-4 pb-3 border-b-2 border-gray-100">סטטיסטיקות</h2>
+            <div className="grid grid-cols-4 gap-4">
+              <div className="bg-blue-50 rounded-xl p-4 text-center">
+                <div className="text-3xl font-bold text-blue-600">{modulesList.length}</div>
+                <div className="text-sm text-blue-700">מודולים</div>
               </div>
-              <Button onClick={addModule} variant="secondary">
-                + הוסף מודול
-              </Button>
-            </div>
-
-            <div className="space-y-4">
-              {modulesList.sort((a, b) => a.order - b.order).map((module, index) => (
-                <div
-                  key={module.id}
-                  className="bg-white rounded-xl shadow-sm border overflow-hidden"
-                  style={{ borderRightWidth: '4px', borderRightColor: module.color }}
-                >
-                  {/* Module Header */}
-                  <div
-                    className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => toggleModule(module.id)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <span
-                          className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white"
-                          style={{ backgroundColor: module.color }}
-                        >
-                          {index + 1}
-                        </span>
-                        <div>
-                          <input
-                            type="text"
-                            value={module.name}
-                            onChange={(e) => {
-                              e.stopPropagation()
-                              updateModule(module.id, { name: e.target.value })
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-lg font-semibold bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none transition-colors"
-                          />
-                          <div className="text-sm text-gray-500">
-                            {module.topics.length} נושאים | {module.hours} שעות
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={module.color}
-                          onChange={(e) => updateModule(module.id, { color: e.target.value })}
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-8 h-8 rounded cursor-pointer"
-                        />
-                        <input
-                          type="number"
-                          value={module.hours}
-                          onChange={(e) => updateModule(module.id, { hours: parseInt(e.target.value) || 0 })}
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-16 px-2 py-1 border rounded text-center"
-                          min={0}
-                        />
-                        <span className="text-sm text-gray-500">שעות</span>
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            deleteModule(module.id)
-                          }}
-                          variant="danger"
-                          size="sm"
-                        >
-                          מחק
-                        </Button>
-                        <svg
-                          className={`w-5 h-5 text-gray-400 transition-transform ${expandedModules.has(module.id) ? 'rotate-180' : ''}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Topics (Expanded) */}
-                  {expandedModules.has(module.id) && (
-                    <div className="border-t bg-gray-50 p-4 space-y-2">
-                      {module.topics.map((topic) => (
-                        <div
-                          key={topic.id}
-                          className="flex items-center gap-4 p-3 bg-white rounded-lg border"
-                        >
-                          <input
-                            type="text"
-                            value={topic.name}
-                            onChange={(e) => updateTopic(module.id, topic.id, { name: e.target.value })}
-                            className="flex-1 bg-transparent focus:outline-none"
-                          />
-                          <input
-                            type="number"
-                            value={topic.hours}
-                            onChange={(e) => updateTopic(module.id, topic.id, { hours: parseFloat(e.target.value) || 0 })}
-                            className="w-16 px-2 py-1 border rounded text-center"
-                            min={0}
-                            step={0.5}
-                          />
-                          <span className="text-sm text-gray-500">שעות</span>
-                          <button
-                            onClick={() => deleteTopic(module.id, topic.id)}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        onClick={() => addTopic(module.id)}
-                        className="w-full p-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors"
-                      >
-                        + הוסף נושא
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {modulesList.length === 0 && (
-                <div className="text-center py-12 text-gray-500">
-                  אין מודולים עדיין. לחץ על &quot;הוסף מודול&quot; להתחיל.
-                </div>
-              )}
+              <div className="bg-purple-50 rounded-xl p-4 text-center">
+                <div className="text-3xl font-bold text-purple-600">{totalHours}</div>
+                <div className="text-sm text-purple-700">שעות</div>
+              </div>
+              <div className="bg-green-50 rounded-xl p-4 text-center">
+                <div className="text-3xl font-bold text-green-600">{completedTasks}/{tasksList.length}</div>
+                <div className="text-sm text-green-700">משימות הושלמו</div>
+              </div>
+              <div className="bg-orange-50 rounded-xl p-4 text-center">
+                <div className="text-3xl font-bold text-orange-600">{audiences.length}</div>
+                <div className="text-sm text-orange-700">קהלי יעד</div>
+              </div>
             </div>
           </div>
-        </TabsContent>
 
-        {/* Audiences Tab */}
-        <TabsContent value="audiences">
-          <div className="space-y-4">
-            <div className="flex justify-end">
-              <Button onClick={addAudience} variant="secondary">
-                + הוסף קהל יעד
-              </Button>
+          {/* Target Audiences Panel */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm">
+            <div className="flex justify-between items-center mb-4 pb-3 border-b-2 border-gray-100">
+              <h2 className="text-lg font-bold text-[#1a1a2e]">קהלי יעד</h2>
+              <button
+                onClick={addAudience}
+                className="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-blue-600 transition-colors"
+              >
+                + הוסף
+              </button>
             </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-3">
               {audiences.map((audience) => (
                 <div
                   key={audience.id}
@@ -438,11 +316,9 @@ export default function BeginnersPage() {
                     />
                     <button
                       onClick={() => deleteAudience(audience.id)}
-                      className="text-red-500 hover:text-red-700"
+                      className="text-red-500 hover:text-red-700 text-sm"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                      🗑️
                     </button>
                   </div>
                   <textarea
@@ -454,164 +330,546 @@ export default function BeginnersPage() {
                   />
                 </div>
               ))}
+              {audiences.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  אין קהלי יעד מוגדרים
+                </div>
+              )}
             </div>
-
-            {audiences.length === 0 && (
-              <div className="text-center py-12 text-gray-500">
-                אין קהלי יעד מוגדרים. לחץ על &quot;הוסף קהל יעד&quot; להתחיל.
-              </div>
-            )}
           </div>
-        </TabsContent>
 
-        {/* Tasks Tab */}
-        <TabsContent value="tasks">
-          <div className="space-y-4">
-            <div className="flex flex-wrap gap-4 items-center justify-between">
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => setCategoryFilter('all')}
-                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                    categoryFilter === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  הכל ({tasksList.length})
-                </button>
-                {categories.map((cat) => {
-                  const count = tasksList.filter(t => t.category === cat).length
-                  const colors = categoryColors[cat]
-                  return (
-                    <button
-                      key={cat}
-                      onClick={() => setCategoryFilter(cat)}
-                      className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors`}
-                      style={{
-                        backgroundColor: categoryFilter === cat ? colors.border : colors.bg,
-                        color: categoryFilter === cat ? 'white' : colors.text,
-                      }}
-                    >
-                      {cat} ({count})
-                    </button>
-                  )
-                })}
+          {/* Content Panel */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-[#1a1a2e] mb-4 pb-3 border-b-2 border-gray-100">תוכן התוכנית</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">חזון התוכנית</label>
+                <textarea
+                  value={content.vision || ''}
+                  onChange={(e) => setContent({ ...content, vision: e.target.value })}
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  rows={3}
+                  placeholder="הכנס את חזון התוכנית..."
+                />
               </div>
-              <Button onClick={addTask} variant="secondary">
-                + הוסף משימה
-              </Button>
-            </div>
-
-            {/* Owner Filter */}
-            <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-sm text-gray-500">אחראי:</span>
-              <button
-                onClick={() => setOwnerFilter('all')}
-                className={`px-3 py-1 rounded-full text-sm border transition-colors ${
-                  ownerFilter === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-gray-300'
-                }`}
-              >
-                הכל
-              </button>
-              {owners.map((owner) => {
-                const count = tasksList.filter(t => t.owner === owner).length
-                const color = ownerColors[owner]
-                return (
-                  <button
-                    key={owner}
-                    onClick={() => setOwnerFilter(owner)}
-                    className={`px-3 py-1 rounded-full text-sm border transition-colors`}
-                    style={{
-                      backgroundColor: ownerFilter === owner ? color : 'white',
-                      color: ownerFilter === owner ? 'white' : color,
-                      borderColor: ownerFilter === owner ? color : '#e5e7eb',
-                    }}
-                  >
-                    {owner} ({count})
-                  </button>
-                )
-              })}
-            </div>
-
-            <Card>
-              <div className="space-y-2">
-                {filteredTasks.map((task) => {
-                  const colors = categoryColors[task.category] || categoryColors['מחקר']
-                  return (
-                    <div
-                      key={task.id}
-                      className="flex items-center justify-between p-3 rounded-lg transition-colors"
-                      style={{ backgroundColor: colors.bg }}
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        <input
-                          type="checkbox"
-                          checked={task.done}
-                          onChange={(e) => updateTask(task.id, { done: e.target.checked })}
-                          className="w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                        />
-                        <input
-                          type="text"
-                          value={task.text}
-                          onChange={(e) => updateTask(task.id, { text: e.target.value })}
-                          className={`flex-1 bg-transparent border-none focus:outline-none ${task.done ? 'line-through text-gray-400' : ''}`}
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={task.category}
-                          onChange={(e) => updateTask(task.id, { category: e.target.value })}
-                          className="px-2 py-1 text-xs rounded border bg-white"
-                        >
-                          {categories.map((cat) => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
-                        </select>
-                        <select
-                          value={task.owner}
-                          onChange={(e) => updateTask(task.id, { owner: e.target.value })}
-                          className="px-2 py-1 text-xs rounded border bg-white"
-                          style={{ color: ownerColors[task.owner] }}
-                        >
-                          {owners.map((owner) => (
-                            <option key={owner} value={owner}>{owner}</option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={() => deleteTask(task.id)}
-                          className="text-red-500 hover:text-red-700 p-1"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-
-                {filteredTasks.length === 0 && (
-                  <p className="text-center text-gray-500 py-8">אין משימות בקטגוריה זו</p>
-                )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">דרישות קדם</label>
+                <textarea
+                  value={content.requirements || ''}
+                  onChange={(e) => setContent({ ...content, requirements: e.target.value })}
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  rows={2}
+                  placeholder="הכנס את דרישות הקדם..."
+                />
               </div>
-            </Card>
-
-            {/* Progress Bar */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-gray-600">התקדמות: {completedTasks}/{tasksList.length}</span>
-                <span className="text-sm font-medium text-gray-900">
-                  {tasksList.length > 0 ? Math.round((completedTasks / tasksList.length) * 100) : 0}%
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${tasksList.length > 0 ? (completedTasks / tasksList.length) * 100 : 0}%` }}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">יתרונות התוכנית</label>
+                <textarea
+                  value={content.advantages || ''}
+                  onChange={(e) => setContent({ ...content, advantages: e.target.value })}
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  rows={3}
+                  placeholder="הכנס את יתרונות התוכנית..."
                 />
               </div>
             </div>
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
+
+      {/* Modules Tab */}
+      {activeTab === 'modules' && (
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border-2 border-green-300">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-green-800">בונה מודולות סילבוס</h2>
+              <p className="text-sm text-green-600 mt-1">סה״כ: {modulesList.length} מודולים, {totalHours} שעות</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={addModule}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium"
+              >
+                + מודולה חדשה
+              </button>
+              <button className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors">
+                📤 ייצוא
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {modulesList.sort((a, b) => a.order - b.order).map((module, index) => (
+              <div
+                key={module.id}
+                className="bg-white rounded-xl shadow-sm overflow-hidden"
+                style={{ borderRight: `4px solid ${module.color}` }}
+              >
+                {/* Module Header */}
+                <div
+                  className="p-4 cursor-pointer hover:bg-gray-50 transition-colors flex items-center justify-between"
+                  onClick={() => toggleModule(module.id)}
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="text-gray-400 cursor-grab">⋮⋮</span>
+                    <span
+                      className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white"
+                      style={{ backgroundColor: module.color }}
+                    >
+                      {index + 1}
+                    </span>
+                    <div>
+                      <input
+                        type="text"
+                        value={module.name}
+                        onChange={(e) => {
+                          e.stopPropagation()
+                          updateModule(module.id, { name: e.target.value })
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-lg font-semibold bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none"
+                      />
+                      <div className="text-sm text-gray-500">
+                        {module.topics.length} נושאים | {module.hours} שעות
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={module.color}
+                      onChange={(e) => updateModule(module.id, { color: e.target.value })}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-8 h-8 rounded cursor-pointer"
+                    />
+                    <input
+                      type="number"
+                      value={module.hours}
+                      onChange={(e) => updateModule(module.id, { hours: parseInt(e.target.value) || 0 })}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-20 px-3 py-1 border rounded-full text-center bg-gray-100"
+                      min={0}
+                    />
+                    <span className="text-sm text-gray-500">שעות</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        deleteModule(module.id)
+                      }}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      🗑️
+                    </button>
+                    <svg
+                      className={`w-5 h-5 text-gray-400 transition-transform ${expandedModules.has(module.id) ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Topics (Expanded) */}
+                {expandedModules.has(module.id) && (
+                  <div className="border-t bg-gray-50 p-4 space-y-2">
+                    {module.topics.map((topic) => (
+                      <div
+                        key={topic.id}
+                        className="flex items-center gap-4 p-3 bg-white rounded-lg border"
+                      >
+                        <span className="text-gray-400 cursor-grab">⋮⋮</span>
+                        <input
+                          type="text"
+                          value={topic.name}
+                          onChange={(e) => updateTopic(module.id, topic.id, { name: e.target.value })}
+                          className="flex-1 bg-transparent focus:outline-none"
+                        />
+                        <input
+                          type="number"
+                          value={topic.hours}
+                          onChange={(e) => updateTopic(module.id, topic.id, { hours: parseFloat(e.target.value) || 0 })}
+                          className="w-16 px-2 py-1 border rounded text-center"
+                          min={0}
+                          step={0.5}
+                        />
+                        <span className="text-sm text-gray-500">שעות</span>
+                        <button
+                          onClick={() => deleteTopic(module.id, topic.id)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => addTopic(module.id)}
+                      className="w-full p-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-green-400 hover:text-green-500 transition-colors"
+                    >
+                      + הוסף נושא
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {modulesList.length === 0 && (
+              <div className="text-center py-12 text-gray-500 bg-white rounded-xl">
+                אין מודולים עדיין. לחץ על &quot;מודולה חדשה&quot; להתחיל.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tasks Tab */}
+      {activeTab === 'tasks' && (
+        <div className="bg-white rounded-2xl p-6 shadow-sm">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-[#1a1a2e]">משימות לביצוע</h2>
+            <div className="flex gap-2">
+              <button className="bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-200 transition-colors">
+                🔄 איפוס
+              </button>
+              <button
+                onClick={addTask}
+                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                + משימה
+              </button>
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-700">התקדמות</span>
+              <span className="text-sm text-gray-500">{completedTasks}/{tasksList.length}</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${tasksList.length > 0 ? (completedTasks / tasksList.length) * 100 : 0}%`,
+                  background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
+                }}
+              >
+                <span className="text-xs text-white font-medium px-2">
+                  {tasksList.length > 0 ? Math.round((completedTasks / tasksList.length) * 100) : 0}%
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Category Filters */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <button
+              onClick={() => setCategoryFilter('all')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                categoryFilter === 'all' ? 'bg-[#1a1a2e] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              הכל ({tasksList.length})
+            </button>
+            {categories.map((cat) => {
+              const count = tasksList.filter(t => t.category === cat).length
+              const doneCount = tasksList.filter(t => t.category === cat && t.done).length
+              const colors = categoryColors[cat]
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setCategoryFilter(cat)}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                  style={{
+                    backgroundColor: categoryFilter === cat ? colors.border : colors.bg,
+                    color: categoryFilter === cat ? 'white' : colors.text,
+                  }}
+                >
+                  {cat} ({doneCount}/{count})
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Owner Filters */}
+          <div className="flex flex-wrap gap-2 mb-6 items-center">
+            <span className="text-sm text-gray-500 ml-2">אחראי:</span>
+            <button
+              onClick={() => setOwnerFilter('all')}
+              className={`px-3 py-1 rounded-full text-sm border transition-colors ${
+                ownerFilter === 'all' ? 'bg-[#1a1a2e] text-white border-[#1a1a2e]' : 'bg-white text-gray-700 border-gray-300'
+              }`}
+            >
+              הכל
+            </button>
+            {owners.map((owner) => {
+              const count = tasksList.filter(t => t.owner === owner).length
+              const color = ownerColors[owner]
+              return (
+                <button
+                  key={owner}
+                  onClick={() => setOwnerFilter(owner)}
+                  className="px-3 py-1 rounded-full text-sm border transition-colors"
+                  style={{
+                    backgroundColor: ownerFilter === owner ? color : 'white',
+                    color: ownerFilter === owner ? 'white' : color,
+                    borderColor: ownerFilter === owner ? color : '#e5e7eb',
+                  }}
+                >
+                  {owner} ({count})
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Tasks List */}
+          <div className="space-y-2">
+            {filteredTasks.map((task) => {
+              const colors = categoryColors[task.category] || categoryColors['מחקר']
+              return (
+                <div
+                  key={task.id}
+                  className="flex items-center justify-between p-3 rounded-lg transition-colors"
+                  style={{ backgroundColor: colors.bg }}
+                >
+                  <div className="flex items-center gap-3 flex-1">
+                    <input
+                      type="checkbox"
+                      checked={task.done}
+                      onChange={(e) => updateTask(task.id, { done: e.target.checked })}
+                      className="w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                    />
+                    <input
+                      type="text"
+                      value={task.text}
+                      onChange={(e) => updateTask(task.id, { text: e.target.value })}
+                      className={`flex-1 bg-transparent border-none focus:outline-none ${task.done ? 'line-through text-gray-400' : ''}`}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={task.category}
+                      onChange={(e) => updateTask(task.id, { category: e.target.value })}
+                      className="px-2 py-1 text-xs rounded border bg-white"
+                    >
+                      {categories.map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={task.owner}
+                      onChange={(e) => updateTask(task.id, { owner: e.target.value })}
+                      className="px-2 py-1 text-xs rounded border bg-white"
+                      style={{ color: ownerColors[task.owner] }}
+                    >
+                      {owners.map((owner) => (
+                        <option key={owner} value={owner}>{owner}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => deleteTask(task.id)}
+                      className="text-red-500 hover:text-red-700 p-1"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+
+            {filteredTasks.length === 0 && (
+              <p className="text-center text-gray-500 py-8">אין משימות בקטגוריה זו</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Competitors Tab */}
+      {activeTab === 'competitors' && (
+        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl p-6 border-2 border-purple-300">
+          <h2 className="text-xl font-bold text-purple-800 mb-6 pb-3 border-b-2 border-purple-300">
+            סקר מתחרים — קורסי שיווק דיגיטלי פרונטליים בישראל
+          </h2>
+
+          {/* Competitor Table */}
+          <div className="bg-white rounded-xl p-4 border border-purple-200 mb-5">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-purple-800 font-semibold">טבלת מתחרים</h3>
+              <button
+                onClick={() => {
+                  const name = prompt('שם המתחרה:')
+                  if (name) {
+                    setCompetitors([...competitors, {
+                      id: Date.now(),
+                      name,
+                      price: '',
+                      hours: '?',
+                      duration: '?',
+                      format: 'פרונטלי',
+                      ai: '?',
+                      internship: '?',
+                    }])
+                  }
+                }}
+                className="bg-purple-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-purple-700 transition-colors"
+              >
+                + מתחרה
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-purple-100">
+                    <th className="p-2.5 text-right border-b-2 border-purple-300">מתחרה</th>
+                    <th className="p-2.5 text-center border-b-2 border-purple-300">מחיר ₪</th>
+                    <th className="p-2.5 text-center border-b-2 border-purple-300">שעות</th>
+                    <th className="p-2.5 text-center border-b-2 border-purple-300">משך</th>
+                    <th className="p-2.5 text-center border-b-2 border-purple-300">פורמט</th>
+                    <th className="p-2.5 text-center border-b-2 border-purple-300">AI</th>
+                    <th className="p-2.5 text-center border-b-2 border-purple-300">סטאז׳</th>
+                    <th className="p-2.5 text-center border-b-2 border-purple-300"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {competitors.map((c, idx) => (
+                    <tr key={c.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-purple-50'}>
+                      {editingCompetitor === c.id ? (
+                        <>
+                          <td className="p-2 border-b border-gray-200">
+                            <input
+                              type="text"
+                              defaultValue={c.name}
+                              onBlur={(e) => setCompetitors(competitors.map(comp => comp.id === c.id ? { ...comp, name: e.target.value } : comp))}
+                              className="w-full px-2 py-1 border rounded"
+                            />
+                          </td>
+                          <td className="p-2 border-b border-gray-200 text-center">
+                            <input
+                              type="text"
+                              defaultValue={c.price}
+                              onBlur={(e) => setCompetitors(competitors.map(comp => comp.id === c.id ? { ...comp, price: e.target.value } : comp))}
+                              className="w-20 px-2 py-1 border rounded text-center"
+                            />
+                          </td>
+                          <td className="p-2 border-b border-gray-200 text-center">
+                            <input
+                              type="text"
+                              defaultValue={c.hours}
+                              onBlur={(e) => setCompetitors(competitors.map(comp => comp.id === c.id ? { ...comp, hours: e.target.value } : comp))}
+                              className="w-16 px-2 py-1 border rounded text-center"
+                            />
+                          </td>
+                          <td className="p-2 border-b border-gray-200 text-center">
+                            <input
+                              type="text"
+                              defaultValue={c.duration}
+                              onBlur={(e) => setCompetitors(competitors.map(comp => comp.id === c.id ? { ...comp, duration: e.target.value } : comp))}
+                              className="w-20 px-2 py-1 border rounded text-center"
+                            />
+                          </td>
+                          <td className="p-2 border-b border-gray-200 text-center">
+                            <select
+                              defaultValue={c.format}
+                              onChange={(e) => setCompetitors(competitors.map(comp => comp.id === c.id ? { ...comp, format: e.target.value } : comp))}
+                              className="px-2 py-1 border rounded"
+                            >
+                              <option value="פרונטלי">פרונטלי</option>
+                              <option value="אונליין">אונליין</option>
+                              <option value="היברידי">היברידי</option>
+                            </select>
+                          </td>
+                          <td className="p-2 border-b border-gray-200 text-center text-xs">
+                            <input
+                              type="text"
+                              defaultValue={c.ai}
+                              onBlur={(e) => setCompetitors(competitors.map(comp => comp.id === c.id ? { ...comp, ai: e.target.value } : comp))}
+                              className="w-full px-2 py-1 border rounded text-center text-xs"
+                            />
+                          </td>
+                          <td className="p-2 border-b border-gray-200 text-center text-xs">
+                            <input
+                              type="text"
+                              defaultValue={c.internship}
+                              onBlur={(e) => setCompetitors(competitors.map(comp => comp.id === c.id ? { ...comp, internship: e.target.value } : comp))}
+                              className="w-full px-2 py-1 border rounded text-center text-xs"
+                            />
+                          </td>
+                          <td className="p-2 border-b border-gray-200 text-center">
+                            <button onClick={() => setEditingCompetitor(null)} className="text-green-600 hover:text-green-800">✓</button>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="p-2 border-b border-gray-200 font-medium">{c.name}</td>
+                          <td className="p-2 border-b border-gray-200 text-center">
+                            {c.price || <span className="text-amber-500 cursor-pointer" onClick={() => setEditingCompetitor(c.id)}>⚠️ חסר</span>}
+                          </td>
+                          <td className="p-2 border-b border-gray-200 text-center">{c.hours}</td>
+                          <td className="p-2 border-b border-gray-200 text-center">{c.duration}</td>
+                          <td className="p-2 border-b border-gray-200 text-center">{c.format}</td>
+                          <td className="p-2 border-b border-gray-200 text-center text-xs">{c.ai}</td>
+                          <td className="p-2 border-b border-gray-200 text-center text-xs">{c.internship}</td>
+                          <td className="p-2 border-b border-gray-200 text-center">
+                            <button onClick={() => setEditingCompetitor(c.id)} className="hover:opacity-70 mr-1">✏️</button>
+                            <button onClick={() => setCompetitors(competitors.filter(comp => comp.id !== c.id))} className="hover:opacity-70">🗑️</button>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Our Comparison */}
+          <div className="bg-green-50 rounded-xl p-4 border-2 border-green-300 mb-5">
+            <h3 className="text-green-800 font-semibold mb-3">
+              אנחנו (להשוואה) — <span className="font-normal text-sm">טרם הוחלט סופית</span>
+            </h3>
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div><strong>מחיר:</strong> ₪17,000 (כולל מע״מ)</div>
+              <div><strong>שעות:</strong> 120+ שעות לימוד</div>
+              <div><strong>משך:</strong> ~4 חודשים</div>
+              <div><strong>פורמט:</strong> היברידי — Zoom חי + הקלטות + מפגשים פרונטליים</div>
+              <div><strong>AI:</strong> משולב בכל מודול + מודול Ethics ייעודי + הבנת מגבלות AI</div>
+              <div><strong>תרגול:</strong> פרויקטים על לקוחות/תקציבים אמיתיים</div>
+            </div>
+          </div>
+
+          {/* Market Gaps */}
+          <div className="bg-red-50 rounded-xl p-4 border border-red-200 mb-5">
+            <h3 className="text-red-800 font-semibold mb-3">פערים בשוק (מהמחקר)</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm text-red-900">
+              {[
+                { icon: '🎭', title: 'הבטחות מנופחות', desc: 'קורסים משתמשים בשם "AI Marketing" אבל רוב התוכן (70-80%) הוא שיווק רגיל — SEO, PPC, סושיאל.' },
+                { icon: '🔧', title: 'AI ללא הקשר', desc: 'מלמדים להשתמש בכלים אבל לא מתי ולמה. חסרה שאלת "האם בכלל צריך AI כאן?"' },
+                { icon: '📊', title: 'יצירה בלי מדידה', desc: 'בוגרים יודעים לייצר 50 פוסטים אבל לא יודעים לבדוק מה עבד.' },
+                { icon: '⚠️', title: 'טעויות AI לא נלמדות', desc: 'מה קורה כש-AI ממציא עובדות? מפלה קהלים? חושף מידע רגיש?' },
+                { icon: '🎮', title: 'תרגול על "דמה"', desc: 'סימולציות ותיקי עבודה מדומים לא מכינים למציאות.' },
+                { icon: '💰', title: 'ציפיות לא ריאליות', desc: '"AI יחסוך 90% מהזמן" — במציאות החיסכון הוא 10-20%.' },
+              ].map((gap, idx) => (
+                <div key={idx} className="bg-red-100 p-3 rounded-lg">
+                  <strong className="block mb-1.5">{gap.icon} {gap.title}</strong>
+                  {gap.desc}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Recommendations */}
+          <div className="bg-blue-100 rounded-xl p-4 border border-blue-300">
+            <h3 className="text-blue-800 font-semibold mb-2.5">המלצות לשקול</h3>
+            <div className="grid grid-cols-2 gap-3 text-sm text-blue-900">
+              <div>• ליווי ממושך אחרי סיום (כמה חודשים?)</div>
+              <div>• תרגול על תקציבים אמיתיים</div>
+              <div>• שקיפות בנתוני השמה</div>
+              <div>• Soft Skills מובנים בתוכנית</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
