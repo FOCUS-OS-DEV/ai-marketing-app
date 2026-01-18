@@ -86,9 +86,24 @@ export default function BeginnersPage() {
   const [expandedModules, setExpandedModules] = useState<Set<number>>(new Set())
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [ownerFilter, setOwnerFilter] = useState<string>('all')
-  const [activeTab, setActiveTab] = useState<'overview' | 'modules' | 'tasks' | 'competitors'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'modules' | 'tasks' | 'competitors' | 'calculator'>('overview')
   const [competitors, setCompetitors] = useState<Competitor[]>(defaultCompetitors)
   const [editingCompetitor, setEditingCompetitor] = useState<number | null>(null)
+
+  // Calculator state
+  const [calcParams, setCalcParams] = useState({
+    studentsPerCohort: 25,
+    pricePerStudent: 17000,
+    cohortsPerYear: 3,
+    classroomRent: 2500,
+    sessionsPerCohort: 32,
+    teacherHourlyRate: 300,
+    hoursPerSession: 4,
+    platformCost: 500,
+    marketingBudget: 15000,
+    adminSalary: 8000,
+    miscExpenses: 3000,
+  })
 
   const audiences = (config as { audiences?: Audience[] })?.audiences || []
   const modulesList = modules as Module[]
@@ -248,6 +263,7 @@ export default function BeginnersPage() {
           { id: 'modules', label: `מודולים (${modulesList.length})`, icon: '📚' },
           { id: 'tasks', label: `משימות (${tasksList.length})`, icon: '✅' },
           { id: 'competitors', label: 'סקר מתחרים', icon: '🔍' },
+          { id: 'calculator', label: 'מחשבון רווחיות', icon: '🧮' },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -870,6 +886,212 @@ export default function BeginnersPage() {
           </div>
         </div>
       )}
+
+      {/* Calculator Tab */}
+      {activeTab === 'calculator' && (() => {
+        const yearlyRevenue = calcParams.studentsPerCohort * calcParams.pricePerStudent * calcParams.cohortsPerYear
+        const classroomCost = calcParams.classroomRent * calcParams.sessionsPerCohort * calcParams.cohortsPerYear
+        const teacherCost = calcParams.teacherHourlyRate * calcParams.hoursPerSession * calcParams.sessionsPerCohort * calcParams.cohortsPerYear
+        const platformCost = calcParams.platformCost * 12
+        const marketingCost = calcParams.marketingBudget * 12
+        const adminCost = calcParams.adminSalary * 12
+        const miscCost = calcParams.miscExpenses * 12
+        const totalExpenses = classroomCost + teacherCost + platformCost + marketingCost + adminCost + miscCost
+        const yearlyProfit = yearlyRevenue - totalExpenses
+        const profitMargin = yearlyRevenue > 0 ? (yearlyProfit / yearlyRevenue) * 100 : 0
+
+        return (
+          <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-6 border-2 border-amber-300">
+            <h2 className="text-xl font-bold text-amber-800 mb-6 pb-3 border-b-2 border-amber-300">
+              מחשבון רווחיות — תוכנית למתחילים
+            </h2>
+
+            <div className="grid grid-cols-2 gap-6">
+              {/* Parameters */}
+              <div className="bg-white rounded-xl p-5 border border-amber-200">
+                <h3 className="text-amber-800 font-semibold mb-4">פרמטרים</h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">סטודנטים למחזור</label>
+                      <input
+                        type="number"
+                        value={calcParams.studentsPerCohort}
+                        onChange={(e) => setCalcParams({ ...calcParams, studentsPerCohort: parseInt(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">מחיר לסטודנט ₪</label>
+                      <input
+                        type="number"
+                        value={calcParams.pricePerStudent}
+                        onChange={(e) => setCalcParams({ ...calcParams, pricePerStudent: parseInt(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">מחזורים בשנה</label>
+                      <input
+                        type="number"
+                        value={calcParams.cohortsPerYear}
+                        onChange={(e) => setCalcParams({ ...calcParams, cohortsPerYear: parseInt(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">מפגשים למחזור</label>
+                      <input
+                        type="number"
+                        value={calcParams.sessionsPerCohort}
+                        onChange={(e) => setCalcParams({ ...calcParams, sessionsPerCohort: parseInt(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Revenue */}
+              <div className="bg-green-50 rounded-xl p-5 border border-green-300">
+                <h3 className="text-green-800 font-semibold mb-4">הכנסות שנתיות</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                    <span className="text-gray-600">סטודנטים × מחיר × מחזורים</span>
+                    <span className="font-bold text-green-700">
+                      {calcParams.studentsPerCohort} × ₪{calcParams.pricePerStudent.toLocaleString()} × {calcParams.cohortsPerYear}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center p-4 bg-green-600 text-white rounded-lg">
+                    <span className="font-semibold">סה״כ הכנסות שנתיות</span>
+                    <span className="text-2xl font-bold">₪{yearlyRevenue.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Expenses */}
+              <div className="bg-red-50 rounded-xl p-5 border border-red-200">
+                <h3 className="text-red-800 font-semibold mb-4">הוצאות שנתיות</h3>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">שכירות כיתה/מפגש ₪</label>
+                      <input
+                        type="number"
+                        value={calcParams.classroomRent}
+                        onChange={(e) => setCalcParams({ ...calcParams, classroomRent: parseInt(e.target.value) || 0 })}
+                        className="w-full px-2 py-1.5 border rounded text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">תעריף מרצה/שעה ₪</label>
+                      <input
+                        type="number"
+                        value={calcParams.teacherHourlyRate}
+                        onChange={(e) => setCalcParams({ ...calcParams, teacherHourlyRate: parseInt(e.target.value) || 0 })}
+                        className="w-full px-2 py-1.5 border rounded text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">שעות למפגש</label>
+                      <input
+                        type="number"
+                        value={calcParams.hoursPerSession}
+                        onChange={(e) => setCalcParams({ ...calcParams, hoursPerSession: parseInt(e.target.value) || 0 })}
+                        className="w-full px-2 py-1.5 border rounded text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">פלטפורמה/חודש ₪</label>
+                      <input
+                        type="number"
+                        value={calcParams.platformCost}
+                        onChange={(e) => setCalcParams({ ...calcParams, platformCost: parseInt(e.target.value) || 0 })}
+                        className="w-full px-2 py-1.5 border rounded text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">שיווק/חודש ₪</label>
+                      <input
+                        type="number"
+                        value={calcParams.marketingBudget}
+                        onChange={(e) => setCalcParams({ ...calcParams, marketingBudget: parseInt(e.target.value) || 0 })}
+                        className="w-full px-2 py-1.5 border rounded text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">אדמיניסטרציה/חודש ₪</label>
+                      <input
+                        type="number"
+                        value={calcParams.adminSalary}
+                        onChange={(e) => setCalcParams({ ...calcParams, adminSalary: parseInt(e.target.value) || 0 })}
+                        className="w-full px-2 py-1.5 border rounded text-sm"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-xs text-gray-500 mb-1">הוצאות שונות/חודש ₪</label>
+                      <input
+                        type="number"
+                        value={calcParams.miscExpenses}
+                        onChange={(e) => setCalcParams({ ...calcParams, miscExpenses: parseInt(e.target.value) || 0 })}
+                        className="w-full px-2 py-1.5 border rounded text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4 p-3 bg-white rounded-lg text-sm space-y-1">
+                    <div className="flex justify-between"><span>כיתות:</span><span>₪{classroomCost.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>מרצים:</span><span>₪{teacherCost.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>פלטפורמה:</span><span>₪{platformCost.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>שיווק:</span><span>₪{marketingCost.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>אדמין:</span><span>₪{adminCost.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>שונות:</span><span>₪{miscCost.toLocaleString()}</span></div>
+                  </div>
+                  <div className="flex justify-between items-center p-4 bg-red-600 text-white rounded-lg">
+                    <span className="font-semibold">סה״כ הוצאות שנתיות</span>
+                    <span className="text-2xl font-bold">₪{totalExpenses.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div className={`rounded-xl p-5 border-2 ${yearlyProfit >= 0 ? 'bg-emerald-50 border-emerald-400' : 'bg-red-100 border-red-400'}`}>
+                <h3 className={`font-semibold mb-4 ${yearlyProfit >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>סיכום שנתי</h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white rounded-lg p-4 text-center">
+                      <div className="text-sm text-gray-500">הכנסות</div>
+                      <div className="text-xl font-bold text-green-600">₪{yearlyRevenue.toLocaleString()}</div>
+                    </div>
+                    <div className="bg-white rounded-lg p-4 text-center">
+                      <div className="text-sm text-gray-500">הוצאות</div>
+                      <div className="text-xl font-bold text-red-600">₪{totalExpenses.toLocaleString()}</div>
+                    </div>
+                  </div>
+                  <div className={`p-5 rounded-xl text-center ${yearlyProfit >= 0 ? 'bg-emerald-600' : 'bg-red-600'} text-white`}>
+                    <div className="text-sm opacity-80">{yearlyProfit >= 0 ? 'רווח שנתי נקי' : 'הפסד שנתי'}</div>
+                    <div className="text-3xl font-bold">₪{Math.abs(yearlyProfit).toLocaleString()}</div>
+                    <div className="text-sm mt-1 opacity-80">מרווח: {profitMargin.toFixed(1)}%</div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-center text-sm">
+                    <div className="bg-white rounded-lg p-3">
+                      <div className="text-gray-500">לסטודנט</div>
+                      <div className="font-bold">₪{(yearlyProfit / (calcParams.studentsPerCohort * calcParams.cohortsPerYear)).toLocaleString()}</div>
+                    </div>
+                    <div className="bg-white rounded-lg p-3">
+                      <div className="text-gray-500">למחזור</div>
+                      <div className="font-bold">₪{(yearlyProfit / calcParams.cohortsPerYear).toLocaleString()}</div>
+                    </div>
+                    <div className="bg-white rounded-lg p-3">
+                      <div className="text-gray-500">לחודש</div>
+                      <div className="font-bold">₪{(yearlyProfit / 12).toLocaleString()}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
