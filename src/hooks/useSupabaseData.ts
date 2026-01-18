@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createUntypedClient, type Json } from '@/lib/supabase/db'
+import { saveData, type CalculatorInput } from '@/lib/supabase/edge-functions'
 
 type JsonTableName = 'beginners_config' | 'beginners_modules' | 'beginners_tasks' |
   'pro_config' | 'pro_modules' | 'pro_tasks' | 'pro_audiences'
@@ -9,14 +10,16 @@ type JsonTableName = 'beginners_config' | 'beginners_modules' | 'beginners_tasks
 interface UseJsonDataOptions<T> {
   tableName: JsonTableName
   defaultValue: T
+  useEdgeFunction?: boolean // Flag to use Edge Functions for saving
 }
 
-export function useSupabaseData<T>({ tableName, defaultValue }: UseJsonDataOptions<T>) {
+export function useSupabaseData<T>({ tableName, defaultValue, useEdgeFunction = true }: UseJsonDataOptions<T>) {
   const [data, setData] = useState<T>(defaultValue)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Load data directly from Supabase (reads are still direct for performance)
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -42,23 +45,32 @@ export function useSupabaseData<T>({ tableName, defaultValue }: UseJsonDataOptio
     }
   }, [tableName])
 
+  // Save data through Edge Function (includes audit logging)
   const save = useCallback(async (newData: T) => {
     setSaving(true)
     setError(null)
-    const supabase = createUntypedClient()
+
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      if (useEdgeFunction) {
+        // Use Edge Function for saving (includes audit logging)
+        const { error: saveError } = await saveData(tableName, newData)
+        if (saveError) throw new Error(saveError)
+      } else {
+        // Fallback to direct Supabase call
+        const supabase = createUntypedClient()
+        const { data: { user } } = await supabase.auth.getUser()
 
-      const { error } = await supabase
-        .from(tableName)
-        .update({
-          data: newData as Json,
-          updated_by: user?.id,
-          updated_at: new Date().toISOString(),
-        })
-        .not('id', 'is', null)
+        const { error } = await supabase
+          .from(tableName)
+          .update({
+            data: newData as Json,
+            updated_by: user?.id,
+            updated_at: new Date().toISOString(),
+          })
+          .not('id', 'is', null)
 
-      if (error) throw error
+        if (error) throw error
+      }
 
       setData(newData)
     } catch (err) {
@@ -68,7 +80,7 @@ export function useSupabaseData<T>({ tableName, defaultValue }: UseJsonDataOptio
     } finally {
       setSaving(false)
     }
-  }, [tableName])
+  }, [tableName, useEdgeFunction])
 
   useEffect(() => {
     load()
@@ -131,19 +143,10 @@ export function useBeginnersContent() {
 
   const save = useCallback(async (newContent: typeof content) => {
     setSaving(true)
-    const supabase = createUntypedClient()
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      const { error } = await supabase
-        .from('beginners_content')
-        .update({
-          ...newContent,
-          updated_by: user?.id,
-          updated_at: new Date().toISOString(),
-        })
-        .not('id', 'is', null)
-
-      if (error) throw error
+      // Use Edge Function for saving
+      const { error: saveError } = await saveData('beginners_content', newContent)
+      if (saveError) throw new Error(saveError)
       setContent(newContent)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save')
@@ -216,19 +219,10 @@ export function useProContent() {
 
   const save = useCallback(async (newContent: typeof content) => {
     setSaving(true)
-    const supabase = createUntypedClient()
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      const { error } = await supabase
-        .from('pro_content')
-        .update({
-          ...newContent,
-          updated_by: user?.id,
-          updated_at: new Date().toISOString(),
-        })
-        .not('id', 'is', null)
-
-      if (error) throw error
+      // Use Edge Function for saving
+      const { error: saveError } = await saveData('pro_content', newContent)
+      if (saveError) throw new Error(saveError)
       setContent(newContent)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save')
@@ -245,7 +239,7 @@ export function useProContent() {
   return { content, setContent, loading, saving, error, save, reload: load }
 }
 
-// Calculator config hooks
+// Calculator config hooks with Edge Function support
 export function useBeginnersCalculator() {
   return useSupabaseData({
     tableName: 'beginners_config',
@@ -274,7 +268,7 @@ export function useBeginnersCalculator() {
         salaryManager: 0,
         software: 1500,
         overhead: 200,
-      }
+      } as CalculatorInput
     } as Record<string, unknown>,
   })
 }
