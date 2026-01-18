@@ -90,19 +90,37 @@ export default function BeginnersPage() {
   const [competitors, setCompetitors] = useState<Competitor[]>(defaultCompetitors)
   const [editingCompetitor, setEditingCompetitor] = useState<number | null>(null)
 
-  // Calculator state
-  const [calcParams, setCalcParams] = useState({
-    studentsPerCohort: 25,
-    pricePerStudent: 17000,
-    cohortsPerYear: 3,
-    classroomRent: 2500,
-    sessionsPerCohort: 32,
-    teacherHourlyRate: 300,
-    hoursPerSession: 4,
-    platformCost: 500,
-    marketingBudget: 15000,
-    adminSalary: 8000,
-    miscExpenses: 3000,
+  // Calculator state - matching HTML original exactly
+  const [calc, setCalc] = useState({
+    // Basic params
+    students: 40,
+    sessions: 30,
+    price: 18000,
+    cancellationRate: 5,
+    // Additional revenue
+    extraMaterials: 0,
+    // Per student expenses
+    gifts: 75,
+    certificates: 200,
+    cpl: 1000,
+    salesCommission: 5,
+    // Per session expenses
+    roomRent: 500,
+    mainInstructor: 500,
+    assistant: 0,
+    refreshments: 200,
+    techProduction: 0,
+    // Per cohort expenses
+    marketingAgency: 0,
+    marketingCreative: 0,
+    landingPage: 0,
+    materials: 1000,
+    partialRefunds: 200,
+    // Fixed expenses (per month)
+    cohortMonths: 6,
+    salaryManager: 0,
+    software: 1500,
+    overhead: 200,
   })
 
   const audiences = (config as { audiences?: Audience[] })?.audiences || []
@@ -882,205 +900,310 @@ export default function BeginnersPage() {
         </div>
       )}
 
-      {/* Calculator Tab */}
+      {/* Calculator Tab - Exact match to HTML original */}
       {activeTab === 'calculator' && (() => {
-        const yearlyRevenue = calcParams.studentsPerCohort * calcParams.pricePerStudent * calcParams.cohortsPerYear
-        const classroomCost = calcParams.classroomRent * calcParams.sessionsPerCohort * calcParams.cohortsPerYear
-        const teacherCost = calcParams.teacherHourlyRate * calcParams.hoursPerSession * calcParams.sessionsPerCohort * calcParams.cohortsPerYear
-        const platformCost = calcParams.platformCost * 12
-        const marketingCost = calcParams.marketingBudget * 12
-        const adminCost = calcParams.adminSalary * 12
-        const miscCost = calcParams.miscExpenses * 12
-        const totalExpenses = classroomCost + teacherCost + platformCost + marketingCost + adminCost + miscCost
-        const yearlyProfit = yearlyRevenue - totalExpenses
-        const profitMargin = yearlyRevenue > 0 ? (yearlyProfit / yearlyRevenue) * 100 : 0
+        // VAT rate
+        const VAT = 0.17
+
+        // Calculate effective students (after cancellations)
+        const effectiveStudents = calc.students * (1 - calc.cancellationRate / 100)
+
+        // Revenue calculations (net of VAT)
+        const priceNet = calc.price / (1 + VAT)
+        const baseRevenue = effectiveStudents * priceNet
+        const extraRevenueNet = calc.extraMaterials / (1 + VAT)
+        const totalRevenueNet = baseRevenue + extraRevenueNet
+
+        // Per student expenses
+        const perStudentTotal = (calc.gifts + calc.certificates) * (1 + VAT) + calc.cpl
+        const salesCommissionAmount = (calc.salesCommission / 100) * priceNet * effectiveStudents
+        const totalPerStudent = (perStudentTotal * effectiveStudents) + salesCommissionAmount
+
+        // Per session expenses
+        const perSessionTotal = (calc.roomRent + calc.refreshments + calc.techProduction) * (1 + VAT) + calc.mainInstructor + calc.assistant
+        const totalPerSession = perSessionTotal * calc.sessions
+
+        // Per cohort expenses
+        const perCohortTotal = (calc.marketingAgency + calc.marketingCreative + calc.landingPage + calc.materials) * (1 + VAT) + calc.partialRefunds
+
+        // Fixed monthly expenses
+        const monthlyFixed = calc.salaryManager + (calc.software + calc.overhead) * (1 + VAT)
+        const totalFixed = monthlyFixed * calc.cohortMonths
+
+        // Total expenses (net)
+        const totalExpensesNet = totalPerStudent + totalPerSession + perCohortTotal + totalFixed
+
+        // Profit
+        const grossProfit = totalRevenueNet - totalExpensesNet
+        const profitMargin = totalRevenueNet > 0 ? (grossProfit / totalRevenueNet) * 100 : 0
+
+        // Breakeven
+        const fixedCosts = perCohortTotal + totalFixed + totalPerSession
+        const variableCostPerStudent = (perStudentTotal + salesCommissionAmount / effectiveStudents)
+        const revenuePerStudent = priceNet
+        const breakeven = fixedCosts / (revenuePerStudent - variableCostPerStudent)
+
+        const formatCurrency = (num: number) => `₪${Math.round(num).toLocaleString()}`
 
         return (
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-6 border-2 border-amber-300">
-            <h2 className="text-xl font-bold text-amber-800 mb-6 pb-3 border-b-2 border-amber-300">
-              מחשבון רווחיות — תוכנית למתחילים
+          <div className="bg-white rounded-2xl p-6 shadow-sm">
+            <h2 className="text-xl font-bold text-[#1a1a2e] mb-6 pb-3 border-b-2 border-gray-200">
+              מחשבון רווחיות למחזור
             </h2>
 
-            <div className="grid grid-cols-2 gap-6">
-              {/* Parameters */}
-              <div className="bg-white rounded-xl p-5 border border-amber-200">
-                <h3 className="text-amber-800 font-semibold mb-4">פרמטרים</h3>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm text-gray-600 mb-1">סטודנטים למחזור</label>
-                      <input
-                        type="number"
-                        value={calcParams.studentsPerCohort}
-                        onChange={(e) => setCalcParams({ ...calcParams, studentsPerCohort: parseInt(e.target.value) || 0 })}
-                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-600 mb-1">מחיר לסטודנט ₪</label>
-                      <input
-                        type="number"
-                        value={calcParams.pricePerStudent}
-                        onChange={(e) => setCalcParams({ ...calcParams, pricePerStudent: parseInt(e.target.value) || 0 })}
-                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-600 mb-1">מחזורים בשנה</label>
-                      <input
-                        type="number"
-                        value={calcParams.cohortsPerYear}
-                        onChange={(e) => setCalcParams({ ...calcParams, cohortsPerYear: parseInt(e.target.value) || 0 })}
-                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-600 mb-1">מפגשים למחזור</label>
-                      <input
-                        type="number"
-                        value={calcParams.sessionsPerCohort}
-                        onChange={(e) => setCalcParams({ ...calcParams, sessionsPerCohort: parseInt(e.target.value) || 0 })}
-                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {/* Toolbar */}
+            <div className="flex gap-3 mb-6 flex-wrap">
+              <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm">
+                📤 ייצוא הגדרות
+              </button>
+              <button className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm">
+                📥 ייבוא הגדרות
+              </button>
+              <button
+                onClick={() => setCalc({
+                  students: 40, sessions: 30, price: 18000, cancellationRate: 5,
+                  extraMaterials: 0, gifts: 75, certificates: 200, cpl: 1000, salesCommission: 5,
+                  roomRent: 500, mainInstructor: 500, assistant: 0, refreshments: 200, techProduction: 0,
+                  marketingAgency: 0, marketingCreative: 0, landingPage: 0, materials: 1000, partialRefunds: 200,
+                  cohortMonths: 6, salaryManager: 0, software: 1500, overhead: 200,
+                })}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
+              >
+                🔄 איפוס לברירת מחדל
+              </button>
+            </div>
 
-              {/* Revenue */}
-              <div className="bg-green-50 rounded-xl p-5 border border-green-300">
-                <h3 className="text-green-800 font-semibold mb-4">הכנסות שנתיות</h3>
+            {/* Calculator Grid - 3 columns */}
+            <div className="grid grid-cols-3 gap-6 mb-6">
+              {/* Basic Params */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="font-semibold text-gray-800 text-sm">פרמטרים בסיסיים</span>
+                  <span className="text-xs px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full">בסיס</span>
+                </div>
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center p-3 bg-white rounded-lg">
-                    <span className="text-gray-600">סטודנטים × מחיר × מחזורים</span>
-                    <span className="font-bold text-green-700">
-                      {calcParams.studentsPerCohort} × ₪{calcParams.pricePerStudent.toLocaleString()} × {calcParams.cohortsPerYear}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 bg-green-600 text-white rounded-lg">
-                    <span className="font-semibold">סה״כ הכנסות שנתיות</span>
-                    <span className="text-2xl font-bold">₪{yearlyRevenue.toLocaleString()}</span>
-                  </div>
+                  {[
+                    { label: 'סטודנטים במחזור', key: 'students' },
+                    { label: 'מספר מפגשים', key: 'sessions' },
+                    { label: 'מחיר לתלמיד (כולל מע"מ)', key: 'price' },
+                    { label: 'ביטולים מלאים (%)', key: 'cancellationRate', unit: '%' },
+                  ].map(item => (
+                    <div key={item.key} className="flex justify-between items-center p-2 bg-white rounded-lg border">
+                      <span className="text-sm text-gray-600">{item.label}</span>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          value={calc[item.key as keyof typeof calc]}
+                          onChange={(e) => setCalc({ ...calc, [item.key]: parseFloat(e.target.value) || 0 })}
+                          className="w-20 px-2 py-1 border rounded text-left text-sm"
+                        />
+                        {item.unit && <span className="text-xs text-gray-400">{item.unit}</span>}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Expenses */}
-              <div className="bg-red-50 rounded-xl p-5 border border-red-200">
-                <h3 className="text-red-800 font-semibold mb-4">הוצאות שנתיות</h3>
+              {/* Additional Revenue */}
+              <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="font-semibold text-green-800 text-sm">הכנסות נוספות</span>
+                  <span className="text-xs px-2 py-0.5 bg-green-200 text-green-700 rounded-full">הכנסה</span>
+                </div>
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">שכירות כיתה/מפגש ₪</label>
-                      <input
-                        type="number"
-                        value={calcParams.classroomRent}
-                        onChange={(e) => setCalcParams({ ...calcParams, classroomRent: parseInt(e.target.value) || 0 })}
-                        className="w-full px-2 py-1.5 border rounded text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">תעריף מרצה/שעה ₪</label>
-                      <input
-                        type="number"
-                        value={calcParams.teacherHourlyRate}
-                        onChange={(e) => setCalcParams({ ...calcParams, teacherHourlyRate: parseInt(e.target.value) || 0 })}
-                        className="w-full px-2 py-1.5 border rounded text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">שעות למפגש</label>
-                      <input
-                        type="number"
-                        value={calcParams.hoursPerSession}
-                        onChange={(e) => setCalcParams({ ...calcParams, hoursPerSession: parseInt(e.target.value) || 0 })}
-                        className="w-full px-2 py-1.5 border rounded text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">פלטפורמה/חודש ₪</label>
-                      <input
-                        type="number"
-                        value={calcParams.platformCost}
-                        onChange={(e) => setCalcParams({ ...calcParams, platformCost: parseInt(e.target.value) || 0 })}
-                        className="w-full px-2 py-1.5 border rounded text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">שיווק/חודש ₪</label>
-                      <input
-                        type="number"
-                        value={calcParams.marketingBudget}
-                        onChange={(e) => setCalcParams({ ...calcParams, marketingBudget: parseInt(e.target.value) || 0 })}
-                        className="w-full px-2 py-1.5 border rounded text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">אדמיניסטרציה/חודש ₪</label>
-                      <input
-                        type="number"
-                        value={calcParams.adminSalary}
-                        onChange={(e) => setCalcParams({ ...calcParams, adminSalary: parseInt(e.target.value) || 0 })}
-                        className="w-full px-2 py-1.5 border rounded text-sm"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-xs text-gray-500 mb-1">הוצאות שונות/חודש ₪</label>
-                      <input
-                        type="number"
-                        value={calcParams.miscExpenses}
-                        onChange={(e) => setCalcParams({ ...calcParams, miscExpenses: parseInt(e.target.value) || 0 })}
-                        className="w-full px-2 py-1.5 border rounded text-sm"
-                      />
-                    </div>
+                  <div className="flex justify-between items-center p-2 bg-white rounded-lg border">
+                    <span className="text-sm text-gray-600">מכירת חומרי לימוד</span>
+                    <input
+                      type="number"
+                      value={calc.extraMaterials}
+                      onChange={(e) => setCalc({ ...calc, extraMaterials: parseFloat(e.target.value) || 0 })}
+                      className="w-20 px-2 py-1 border rounded text-left text-sm"
+                    />
                   </div>
-                  <div className="mt-4 p-3 bg-white rounded-lg text-sm space-y-1">
-                    <div className="flex justify-between"><span>כיתות:</span><span>₪{classroomCost.toLocaleString()}</span></div>
-                    <div className="flex justify-between"><span>מרצים:</span><span>₪{teacherCost.toLocaleString()}</span></div>
-                    <div className="flex justify-between"><span>פלטפורמה:</span><span>₪{platformCost.toLocaleString()}</span></div>
-                    <div className="flex justify-between"><span>שיווק:</span><span>₪{marketingCost.toLocaleString()}</span></div>
-                    <div className="flex justify-between"><span>אדמין:</span><span>₪{adminCost.toLocaleString()}</span></div>
-                    <div className="flex justify-between"><span>שונות:</span><span>₪{miscCost.toLocaleString()}</span></div>
-                  </div>
-                  <div className="flex justify-between items-center p-4 bg-red-600 text-white rounded-lg">
-                    <span className="font-semibold">סה״כ הוצאות שנתיות</span>
-                    <span className="text-2xl font-bold">₪{totalExpenses.toLocaleString()}</span>
-                  </div>
+                </div>
+                <div className="mt-3 p-3 bg-green-100 rounded-lg flex justify-between">
+                  <span className="text-sm font-semibold">סה"כ</span>
+                  <span className="text-sm font-bold text-green-700">{formatCurrency(extraRevenueNet)}</span>
                 </div>
               </div>
 
-              {/* Summary */}
-              <div className={`rounded-xl p-5 border-2 ${yearlyProfit >= 0 ? 'bg-emerald-50 border-emerald-400' : 'bg-red-100 border-red-400'}`}>
-                <h3 className={`font-semibold mb-4 ${yearlyProfit >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>סיכום שנתי</h3>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white rounded-lg p-4 text-center">
-                      <div className="text-sm text-gray-500">הכנסות</div>
-                      <div className="text-xl font-bold text-green-600">₪{yearlyRevenue.toLocaleString()}</div>
+              {/* Per Student Expenses */}
+              <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="font-semibold text-blue-800 text-sm">הוצאות לפי תלמיד</span>
+                  <span className="text-xs px-2 py-0.5 bg-blue-200 text-blue-700 rounded-full">× סטודנטים</span>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    { label: 'מתנות פתיחה', key: 'gifts' },
+                    { label: 'תעודות וחומרים', key: 'certificates' },
+                    { label: 'עלות רכישת ליד (Meta)', key: 'cpl' },
+                    { label: 'עמלת מכירות', key: 'salesCommission', unit: '%' },
+                  ].map(item => (
+                    <div key={item.key} className="flex justify-between items-center p-2 bg-white rounded-lg border">
+                      <span className="text-xs text-gray-600">{item.label}</span>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          value={calc[item.key as keyof typeof calc]}
+                          onChange={(e) => setCalc({ ...calc, [item.key]: parseFloat(e.target.value) || 0 })}
+                          className="w-16 px-2 py-1 border rounded text-left text-xs"
+                        />
+                        {item.unit && <span className="text-xs text-gray-400">{item.unit}</span>}
+                      </div>
                     </div>
-                    <div className="bg-white rounded-lg p-4 text-center">
-                      <div className="text-sm text-gray-500">הוצאות</div>
-                      <div className="text-xl font-bold text-red-600">₪{totalExpenses.toLocaleString()}</div>
+                  ))}
+                </div>
+                <div className="mt-3 p-3 bg-blue-100 rounded-lg flex justify-between">
+                  <span className="text-sm font-semibold">סה"כ (× סטודנטים)</span>
+                  <span className="text-sm font-bold text-blue-700">{formatCurrency(totalPerStudent)}</span>
+                </div>
+              </div>
+
+              {/* Per Session Expenses */}
+              <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="font-semibold text-orange-800 text-sm">הוצאות לפי מפגש</span>
+                  <span className="text-xs px-2 py-0.5 bg-orange-200 text-orange-700 rounded-full">× מפגשים</span>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    { label: 'שכירות כיתה', key: 'roomRent' },
+                    { label: 'מרצה ראשי', key: 'mainInstructor' },
+                    { label: 'מתרגל/עוזר הוראה', key: 'assistant' },
+                    { label: 'כיבוד', key: 'refreshments' },
+                    { label: 'הפקה טכנית', key: 'techProduction' },
+                  ].map(item => (
+                    <div key={item.key} className="flex justify-between items-center p-2 bg-white rounded-lg border">
+                      <span className="text-xs text-gray-600">{item.label}</span>
+                      <input
+                        type="number"
+                        value={calc[item.key as keyof typeof calc]}
+                        onChange={(e) => setCalc({ ...calc, [item.key]: parseFloat(e.target.value) || 0 })}
+                        className="w-16 px-2 py-1 border rounded text-left text-xs"
+                      />
                     </div>
-                  </div>
-                  <div className={`p-5 rounded-xl text-center ${yearlyProfit >= 0 ? 'bg-emerald-600' : 'bg-red-600'} text-white`}>
-                    <div className="text-sm opacity-80">{yearlyProfit >= 0 ? 'רווח שנתי נקי' : 'הפסד שנתי'}</div>
-                    <div className="text-3xl font-bold">₪{Math.abs(yearlyProfit).toLocaleString()}</div>
-                    <div className="text-sm mt-1 opacity-80">מרווח: {profitMargin.toFixed(1)}%</div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3 text-center text-sm">
-                    <div className="bg-white rounded-lg p-3">
-                      <div className="text-gray-500">לסטודנט</div>
-                      <div className="font-bold">₪{(yearlyProfit / (calcParams.studentsPerCohort * calcParams.cohortsPerYear)).toLocaleString()}</div>
+                  ))}
+                </div>
+                <div className="mt-3 p-3 bg-orange-100 rounded-lg flex justify-between">
+                  <span className="text-sm font-semibold">סה"כ (× מפגשים)</span>
+                  <span className="text-sm font-bold text-orange-700">{formatCurrency(totalPerSession)}</span>
+                </div>
+              </div>
+
+              {/* Per Cohort Expenses */}
+              <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="font-semibold text-emerald-800 text-sm">הוצאות למחזור</span>
+                  <span className="text-xs px-2 py-0.5 bg-emerald-200 text-emerald-700 rounded-full">קבוע למחזור</span>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    { label: 'שיווק — קמפיינר/סוכנות', key: 'marketingAgency' },
+                    { label: 'שיווק — קריאייטיב ותוכן', key: 'marketingCreative' },
+                    { label: 'דף נחיתה/אתר', key: 'landingPage' },
+                    { label: 'הכנת חומרי לימוד', key: 'materials' },
+                    { label: 'זיכויים/החזרים חלקיים', key: 'partialRefunds' },
+                  ].map(item => (
+                    <div key={item.key} className="flex justify-between items-center p-2 bg-white rounded-lg border">
+                      <span className="text-xs text-gray-600">{item.label}</span>
+                      <input
+                        type="number"
+                        value={calc[item.key as keyof typeof calc]}
+                        onChange={(e) => setCalc({ ...calc, [item.key]: parseFloat(e.target.value) || 0 })}
+                        className="w-16 px-2 py-1 border rounded text-left text-xs"
+                      />
                     </div>
-                    <div className="bg-white rounded-lg p-3">
-                      <div className="text-gray-500">למחזור</div>
-                      <div className="font-bold">₪{(yearlyProfit / calcParams.cohortsPerYear).toLocaleString()}</div>
+                  ))}
+                </div>
+                <div className="mt-3 p-3 bg-emerald-100 rounded-lg flex justify-between">
+                  <span className="text-sm font-semibold">סה"כ</span>
+                  <span className="text-sm font-bold text-emerald-700">{formatCurrency(perCohortTotal)}</span>
+                </div>
+              </div>
+
+              {/* Fixed Expenses */}
+              <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="font-semibold text-purple-800 text-sm">הוצאות קבועות (הקצאה)</span>
+                  <span className="text-xs px-2 py-0.5 bg-purple-200 text-purple-700 rounded-full">× חודשים</span>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    { label: 'משך מחזור', key: 'cohortMonths', isParam: true },
+                    { label: 'משכורת מנהל תוכנית', key: 'salaryManager' },
+                    { label: 'תוכנות (LMS, CRM)', key: 'software' },
+                    { label: 'הנהלה וכלליות', key: 'overhead' },
+                  ].map(item => (
+                    <div key={item.key} className="flex justify-between items-center p-2 bg-white rounded-lg border">
+                      <span className="text-xs text-gray-600">{item.label}</span>
+                      <input
+                        type="number"
+                        value={calc[item.key as keyof typeof calc]}
+                        onChange={(e) => setCalc({ ...calc, [item.key]: parseFloat(e.target.value) || 0 })}
+                        className="w-16 px-2 py-1 border rounded text-left text-xs"
+                      />
                     </div>
-                    <div className="bg-white rounded-lg p-3">
-                      <div className="text-gray-500">לחודש</div>
-                      <div className="font-bold">₪{(yearlyProfit / 12).toLocaleString()}</div>
-                    </div>
-                  </div>
+                  ))}
+                </div>
+                <div className="mt-3 p-3 bg-purple-100 rounded-lg flex justify-between">
+                  <span className="text-sm font-semibold">סה"כ (× חודשים)</span>
+                  <span className="text-sm font-bold text-purple-700">{formatCurrency(totalFixed)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Results Cards */}
+            <div className="grid grid-cols-4 gap-4 mb-6">
+              <div className="bg-emerald-500 text-white rounded-xl p-5 text-center">
+                <div className="text-3xl font-bold">{formatCurrency(totalRevenueNet)}</div>
+                <div className="text-sm opacity-90">הכנסה למחזור (נטו)</div>
+                <div className="text-xs opacity-75 mt-1">{formatCurrency(totalRevenueNet / effectiveStudents)} לסטודנט</div>
+              </div>
+              <div className="bg-rose-500 text-white rounded-xl p-5 text-center">
+                <div className="text-3xl font-bold">{formatCurrency(totalExpensesNet)}</div>
+                <div className="text-sm opacity-90">הוצאות למחזור (נטו)</div>
+                <div className="text-xs opacity-75 mt-1">{formatCurrency(totalExpensesNet / effectiveStudents)} לסטודנט</div>
+              </div>
+              <div className={`${grossProfit >= 0 ? 'bg-blue-600' : 'bg-red-600'} text-white rounded-xl p-5 text-center`}>
+                <div className="text-3xl font-bold">{formatCurrency(grossProfit)}</div>
+                <div className="text-sm opacity-90">רווח גולמי למחזור</div>
+                <div className="text-xs opacity-75 mt-1">{profitMargin.toFixed(1)}% מרווח</div>
+              </div>
+              <div className="bg-amber-500 text-white rounded-xl p-5 text-center">
+                <div className="text-3xl font-bold">{Math.ceil(breakeven)}</div>
+                <div className="text-sm opacity-90">נקודת איזון</div>
+                <div className="text-xs opacity-75 mt-1">סטודנטים למחזור</div>
+              </div>
+            </div>
+
+            {/* Expense Breakdown */}
+            <div className="bg-gray-50 rounded-xl p-5">
+              <h3 className="font-semibold text-gray-800 mb-4">פירוט הוצאות למחזור</h3>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                <div className="flex justify-between py-2 border-b">
+                  <span>הוצאות לפי תלמיד ({Math.round(effectiveStudents)} תלמידים)</span>
+                  <span className="font-medium">{formatCurrency(totalPerStudent)}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b">
+                  <span>הוצאות לפי מפגש ({calc.sessions} מפגשים)</span>
+                  <span className="font-medium">{formatCurrency(totalPerSession)}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b">
+                  <span>הוצאות קבועות למחזור</span>
+                  <span className="font-medium">{formatCurrency(perCohortTotal)}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b">
+                  <span>הקצאת הוצאות קבועות ({calc.cohortMonths} חודשים)</span>
+                  <span className="font-medium">{formatCurrency(totalFixed)}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b">
+                  <span>מע"מ לשלטונות (משוער)</span>
+                  <span className="font-medium">{formatCurrency(totalRevenueNet * VAT - totalExpensesNet * VAT * 0.3)}</span>
+                </div>
+                <div className="flex justify-between py-3 font-bold text-base">
+                  <span>סה"כ הוצאות למחזור (נטו)</span>
+                  <span>{formatCurrency(totalExpensesNet)}</span>
                 </div>
               </div>
             </div>
